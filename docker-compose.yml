@@ -1,0 +1,27 @@
+version: '1'
+services:
+  nestjs-api:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - '3000:3000'
+    environment:
+      PORT: 3000
+      NODE_ENV: development
+    volumes:
+      - .:/user/src/app
+  mysql_db:
+    image: mysql
+    restart: always
+    ports:
+      - '3307:3306'
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_USER: user
+      MYSQL_PASSWORD: pass
+      MYSQL_DATABASE: working
+    volumes:
+      - db_data:/user/src/app/var/lib/mysql
+volumes:
+  db_data:
