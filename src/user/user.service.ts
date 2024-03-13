@@ -30,4 +30,10 @@ export class UserService {
     const user = await this.userRepository.findOne({ where: { email } });
     return user ? true : false;
   }
+  async getAllUser() {
+    return await this.userRepository.find();
+  }
+  async getUser(id: number) {
+    return await this.userRepository.findOneBy({ id });
+  }
 }

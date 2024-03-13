@@ -9,6 +9,11 @@ services:
     environment:
       PORT: 3000
       NODE_ENV: development
+      ACCESS_TOKEN_KEY: access_token_secret
+      REFRESH_TOKEN_KEY: refresh_token_secret
+      DB_HOST: mysql_db
+      DB_USERNAME: root
+      DB_PASSWORD: password
     volumes:
       - .:/user/src/app
   mysql_db:

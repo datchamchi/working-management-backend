@@ -6,18 +6,21 @@ import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './user/user.entity';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
     UserModule,
     AuthModule,
     ConfigModule.forRoot({ isGlobal: true }),
+    JwtModule,
     TypeOrmModule.forRoot({
       type: 'mysql',
-      host: 'mysql_db',
-      username: 'root',
-      password: 'password',
-      database: 'working',
+      // host: 'mysql_db',
+      host: process.env.DB_HOST,
+      username: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB,
       // port: 3306,
       entities: [User],
       synchronize: true,
