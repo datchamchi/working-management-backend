@@ -14,6 +14,7 @@ services:
       DB_HOST: mysql_db
       DB_USERNAME: root
       DB_PASSWORD: password
+      DB: working
     volumes:
       - .:/user/src/app
   mysql_db:
@@ -26,6 +27,7 @@ services:
       MYSQL_USER: user
       MYSQL_PASSWORD: pass
       MYSQL_DATABASE: working
+
     volumes:
       - db_data:/user/src/app/var/lib/mysql
 volumes:

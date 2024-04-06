@@ -1,4 +1,9 @@
-import { BadRequestException, HttpException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/user/user.entity';
 import { Repository } from 'typeorm';
@@ -28,7 +33,12 @@ export class AuthService {
       if (!verifyPassword) return new BadRequestException('Wrong password');
       const { password, ...user } = existUser;
       const payload = { sub: user.id, username: user.name };
-      return await this.getToken(payload);
+      const { accessToken, refreshToken } = await this.getToken(payload);
+      return {
+        user: existUser,
+        accessToken,
+        refreshToken,
+      };
     } catch (err) {
       return new HttpException('Something went wrong', 400);
     }
@@ -47,8 +57,18 @@ export class AuthService {
       refreshToken,
     };
   }
+  async verifyAccessToken(
+    accessToken: string,
+  ): Promise<{ sub: number; username: string }> {
+    try {
+      return await this.jwtService.verifyAsync(accessToken, {
+        secret: process.env.ACCESS_TOKEN_KEY,
+      });
+    } catch {
+      throw new UnauthorizedException();
+    }
+  }
   async refreshToken(refreshToken: string) {
-    console.log(refreshToken);
     try {
       const { sub, username } = await this.jwtService.verifyAsync(
         refreshToken,
@@ -59,7 +79,6 @@ export class AuthService {
       const token = await this.getToken({ sub, username });
       return token;
     } catch (err) {
-      console.log(err);
       return new HttpException('RefreshToken is invalid', 401);
     }
   }
