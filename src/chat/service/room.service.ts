@@ -40,11 +40,16 @@ export class RoomService {
     return room;
   }
   async getAllRoomByUserID(userID: number) {
-    const rooms = await this.roomRepository.find({
-      where: { users: { id: userID } },
-      relations: { users: true },
-    });
-    // console.log(rooms);
+    // const rooms = await this.roomRepository.find({
+    //   where: { users: { id: userID } },
+    //   relations: { users: true },
+    // });
+    const rooms = await this.roomRepository
+      .createQueryBuilder('room')
+      .leftJoinAndSelect('room.users', 'user')
+      .where('user.id = :id', { id: userID })
+      .getMany();
+    console.log(rooms);
     return rooms;
   }
 }
