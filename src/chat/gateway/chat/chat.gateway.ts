@@ -67,7 +67,7 @@ export class ChatGateway
     return client.disconnect();
   }
   @SubscribeMessage('createRoom')
-  async handleMessage(client: Socket, data: RoomDto) {
+  async createRoom(client: Socket, data: RoomDto) {
     const currentUser: User = client.data.user;
     const user = await this.userService.findUserByID(currentUser.id);
 
@@ -89,7 +89,7 @@ export class ChatGateway
   }
 
   @SubscribeMessage('createMessage')
-  async getMessage(
+  async createMessage(
     client: Socket,
     data: {
       userId: number;
