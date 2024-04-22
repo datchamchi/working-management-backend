@@ -14,4 +14,7 @@ export class UserDto {
   @IsString()
   @IsOptional()
   avatarUrl?: string;
+
+  @IsString()
+  position: string;
 }

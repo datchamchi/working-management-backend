@@ -19,7 +19,11 @@ export class Room {
 
   @Column()
   name: string;
+  @Column({ default: 1 })
+  numberMember: number;
 
+  @Column()
+  leader: string;
   @ManyToMany(() => User, (user) => user.rooms, { cascade: ['insert'] })
   @JoinColumn()
   users: User[];

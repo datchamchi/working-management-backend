@@ -22,6 +22,8 @@ export class ChatGateway
 {
   @WebSocketServer()
   server: Server;
+
+  private userConnected = [];
   constructor(
     private readonly authService: AuthService,
     private readonly userService: UserService,
@@ -39,14 +41,27 @@ export class ChatGateway
       if (!sub) this.disconnect(client);
 
       const user = await this.userService.findUserByID(sub);
-
+      const checkUserConnected = this.userConnected.findIndex(
+        (u) => u.userId === user.id,
+      );
+      if (checkUserConnected === -1) {
+        this.userConnected.push({
+          userId: user.id,
+          socketId: client.id,
+        });
+      } else {
+        this.userConnected[checkUserConnected].socketId === client.id;
+      }
       client.data.user = user;
-      // this.server.emit('getListRoom', user.rooms);
     } catch (err) {
       this.disconnect(client);
     }
   }
-  handleDisconnect(client: any) {}
+  handleDisconnect(client: any) {
+    this.userConnected = this.userConnected.filter(
+      (u) => u.userId !== client.data.user.id,
+    );
+  }
 
   disconnect(client: Socket) {
     return client.disconnect();
@@ -54,13 +69,15 @@ export class ChatGateway
   @SubscribeMessage('createRoom')
   async handleMessage(client: Socket, data: RoomDto) {
     const currentUser: User = client.data.user;
+    const user = await this.userService.findUserByID(currentUser.id);
 
     // create newRoom
     const newRoom = await this.roomService.createRoom(currentUser, data);
-
     // get new list room
-    const user = await this.userService.findUserByID(currentUser.id);
+    user.rooms = [...user.rooms, newRoom];
+    await this.userService.saveUser(user);
     client.data.user = user; // save user with new room
+    this.server.to(client.id).emit('getListRoom', user.rooms);
   }
   @SubscribeMessage('requestListRoom')
   async getListRoom(client: Socket) {
@@ -69,25 +86,6 @@ export class ChatGateway
     );
     console.log('Send :', client.id);
     this.server.to(client.id).emit('getListRoom', rooms);
-  }
-
-  @SubscribeMessage('addUserToRoom')
-  async addUserToRoom(
-    client: Socket,
-    data: { userId: number; roomId: number },
-  ) {
-    const room = await this.roomService.getRoom(data.roomId);
-    const checkUserInRoom = room.users.findIndex(
-      (user) => user.id === data.userId,
-    );
-    if (checkUserInRoom !== -1) {
-      this.server.to(client.id).emit('error', 'User is exist in room');
-      throw new BadRequestException('User is exist in room');
-    }
-    const userData = await this.userService.findUserByID(data.userId, false);
-    room.users.push(userData);
-    this.roomService.saveRoom(room);
-    this.getListRoom(client);
   }
 
   @SubscribeMessage('createMessage')
@@ -102,14 +100,31 @@ export class ChatGateway
   ) {
     try {
       const { message, roomId, userId, mimeType } = data;
-      console.log(mimeType);
       const user = await this.userService.getUser(userId);
-      const room = await this.roomService.getRoom(roomId, false);
+      const room = await this.roomService.getRoom(roomId, true);
+
+      // create Message
       const newMessage = await this.messageService.createMessage(user, room, {
         content: message,
         mimeType,
       });
+      // inform other in room
+      const userInRoomConnected = this.userConnected.filter((user) => {
+        const userInRoom = room.users.findIndex((u) => u.id === user.userId);
+        return userInRoom !== -1 ? true : false;
+      });
+      userInRoomConnected.forEach((u) => {
+        if (u.userId !== client.data.user.id) {
+          // khong gui den chinh minh
 
+          this.server.to(u.socketId).emit('message', {
+            from: user.name,
+            room: room.name,
+            content: newMessage.content,
+          });
+        }
+      });
+      /// display
       this.getAllMessagesInRoom(client, { roomId: room.id });
     } catch (err) {
       console.log(err);
@@ -130,5 +145,81 @@ export class ChatGateway
     } catch (err) {
       this.server.to(client.id).emit('error', err.message);
     }
+  }
+
+  @SubscribeMessage('inviteToRoom')
+  async inviteToRoom(
+    client: Socket,
+    data: { users: [number]; room: string; roomId: number },
+  ) {
+    this.userConnected.forEach((user) => {
+      if (
+        user.userId !== client.data.user.id &&
+        data.users.includes(user.userId)
+      ) {
+        this.server.to(user.socketId).emit('invitation', {
+          from: client.data.user.name,
+          fromSocket: client.id,
+          room: data.room,
+          roomId: data.roomId,
+        });
+        console.log(
+          'Send invitation from ' +
+            client.data.user.name +
+            ` to ${user.userId}`,
+        );
+      }
+    });
+  }
+
+  @SubscribeMessage('refuseJoin')
+  async refuseJoin(
+    client: Socket,
+    data: {
+      from: string; // name user
+      to: string; // socket id
+    },
+  ) {
+    const { to, from } = data;
+    this.server.to(to).emit('refuse', `${from} refuse join your room`);
+
+    console.log(`${from} refuse your invitation`);
+  }
+  @SubscribeMessage('aceptJoinRoom')
+  async addUserToRoom(
+    client: Socket,
+    data: {
+      userId: number;
+      roomId: number;
+      socketResponse: string; // socket id want to response
+      from: string; /// name user
+    },
+  ) {
+    const room = await this.roomService.getRoom(data.roomId);
+    const checkUserInRoom = room.users.findIndex(
+      (user) => user.id === data.userId,
+    );
+    if (checkUserInRoom !== -1) {
+      this.server.to(client.id).emit('error', 'User is exist in room');
+      throw new BadRequestException('User is exist in room');
+    }
+
+    room.users = [...room.users, client.data.user];
+    room.numberMember += 1;
+    await this.roomService.saveRoom(room);
+    const room1 = await this.roomService.getAllRoomByUserID(
+      client.data.user.id,
+    );
+    const user2Id = this.userConnected.find(
+      (user) => user.socketId === data.socketResponse,
+    ).userId;
+
+    const room2 = await this.roomService.getAllRoomByUserID(user2Id);
+    this.server.to(client.id).emit('getListRoom', room1);
+    this.server.to(data.socketResponse).emit('getListRoom', room2);
+    console.log(`${client.data.user.name} acept your invitation`);
+    this.server
+      .to(data.socketResponse)
+      .emit('acept', `${client.data.user.name} acpept join your room`);
   }
 }

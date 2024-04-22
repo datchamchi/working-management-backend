@@ -14,6 +14,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -34,8 +35,8 @@ export class UserController {
   }
 
   @Get()
-  async getAllUser() {
-    const users = await this.userService.getAllUser();
+  async getAllUser(@Query() q: { key: string }) {
+    const users = await this.userService.getAllUser(q.key);
     return users;
   }
   @Get(':id')

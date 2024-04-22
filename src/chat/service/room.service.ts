@@ -15,11 +15,15 @@ export class RoomService {
   }
   async createRoom(user: User, roomDto: RoomDto) {
     try {
-      const room = await this.roomRepository.save(roomDto);
-      room.users = [user];
-      const saveRoom = await this.roomRepository.save(room);
-      return saveRoom;
+      const room = await this.roomRepository.save({
+        ...roomDto,
+        leader: user.name,
+        users: [user],
+      });
+
+      return room;
     } catch (err) {
+      console.log(err);
       throw new BadRequestException();
     }
   }
@@ -37,6 +41,7 @@ export class RoomService {
   }
   async addUserToRoom(user: User, room: Room) {
     room.users.push(user);
+    room.numberMember = room.numberMember + 1;
     return room;
   }
   async getAllRoomByUserID(userID: number) {
@@ -49,7 +54,6 @@ export class RoomService {
       .leftJoinAndSelect('room.users', 'user')
       .where('user.id = :id', { id: userID })
       .getMany();
-    console.log(rooms);
     return rooms;
   }
 }

@@ -28,6 +28,9 @@ export class UserService {
       return;
     }
   }
+  async saveUser(user: User) {
+    return await this.userRepository.save(user);
+  }
   async findUserByEmail(email: string) {
     try {
       const user = await this.userRepository
@@ -41,24 +44,28 @@ export class UserService {
   }
   async findUserByID(id: number, selectRoom: boolean = true) {
     try {
-      const user = await this.userRepository.findOne(
-        selectRoom
-          ? {
-              where: { id },
-              relations: ['rooms'],
-            }
-          : {
-              where: { id },
-            },
-      );
+      let user: User;
+      if (selectRoom)
+        user = await this.userRepository.findOne({
+          where: { id },
+          relations: ['rooms'],
+        });
+      else
+        user = await this.userRepository.findOne({
+          where: { id },
+        });
+
       return user;
     } catch (err) {
       console.log(err);
       throw new BadRequestException('UserID not found');
     }
   }
-  async getAllUser() {
-    return await this.userRepository.find();
+  async getAllUser(key?: string) {
+    return await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.name like :name', { name: `${key}%` })
+      .getMany();
   }
   async getUser(id: number) {
     const user = await this.userRepository.findOneBy({ id });

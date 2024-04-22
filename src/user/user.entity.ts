@@ -26,6 +26,9 @@ export class User {
   @Column({ nullable: true })
   avatarUrl?: string;
 
+  @Column()
+  position: string;
+
   @ManyToMany(() => Room, (room) => room.users, { cascade: true })
   @JoinTable({
     name: 'user_room',
